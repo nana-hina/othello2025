@@ -51,7 +51,7 @@ def evaluate(board, player):
         elif board[y][x] == opponent(player):
             score -= 30
 
-    # 着手可能数（モビリティ）
+    # モビリティ
     score += 2 * (len(valid_moves(board, player))
                   - len(valid_moves(board, opponent(player))))
 
@@ -63,4 +63,14 @@ def myai(board, player):
         return None
 
     best_score = -10**9
-    bes
+    best_move = moves[0]
+
+    for x, y in moves:
+        temp = [row[:] for row in board]
+        temp[y][x] = player
+        score = evaluate(temp, player)
+        if score > best_score:
+            best_score = score
+            best_move = (x, y)
+
+    return best_move
