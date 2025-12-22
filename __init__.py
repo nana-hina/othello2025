@@ -1,122 +1,90 @@
 import copy
-import math
 
 EMPTY = 0
-BLACK = 1
-WHITE = -1
+DIR = [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)]
 
-DIRECTIONS = [
-    (-1, -1), (-1, 0), (-1, 1),
-    (0, -1),          (0, 1),
-    (1, -1),  (1, 0), (1, 1)
-]
-
+# 角重視テーブル
 WEIGHT = [
-    [1000, -300, 100, 50, 50, 100, -300, 1000],
-    [-300, -500, -50, -50, -50, -50, -500, -300],
-    [100, -50, 30, 10, 10, 30, -50, 100],
-    [50, -50, 10, 5, 5, 10, -50, 50],
-    [50, -50, 10, 5, 5, 10, -50, 50],
-    [100, -50, 30, 10, 10, 30, -50, 100],
-    [-300, -500, -50, -50, -50, -50, -500, -300],
-    [1000, -300, 100, 50, 50, 100, -300, 1000],
+    [100, -30, 10, 5, 5, 10, -30, 100],
+    [-30, -50, -5, -5, -5, -5, -50, -30],
+    [10, -5, 5, 3, 3, 5, -5, 10],
+    [5, -5, 3, 1, 1, 3, -5, 5],
+    [5, -5, 3, 1, 1, 3, -5, 5],
+    [10, -5, 5, 3, 3, 5, -5, 10],
+    [-30, -50, -5, -5, -5, -5, -50, -30],
+    [100, -30, 10, 5, 5, 10, -30, 100],
 ]
-
-def initial_board():
-    board = [[EMPTY]*8 for _ in range(8)]
-    board[3][3] = WHITE
-    board[4][4] = WHITE
-    board[3][4] = BLACK
-    board[4][3] = BLACK
-    return board
 
 def in_board(x, y):
     return 0 <= x < 8 and 0 <= y < 8
 
-def get_valid_moves(board, player):
-    moves = []
-    for x in range(8):
-        for y in range(8):
-            if board[x][y] == EMPTY and can_flip(board, x, y, player):
-                moves.append((x, y))
-    return moves
-
-def can_flip(board, x, y, player):
-    for dx, dy in DIRECTIONS:
+def valid(board, x, y, color):
+    if board[x][y] != EMPTY:
+        return False
+    for dx, dy in DIR:
         nx, ny = x+dx, y+dy
         found = False
-        while in_board(nx, ny) and board[nx][ny] == -player:
+        while in_board(nx, ny) and board[nx][ny] == -color:
             found = True
             nx += dx
             ny += dy
-        if found and in_board(nx, ny) and board[nx][ny] == player:
+        if found and in_board(nx, ny) and board[nx][ny] == color:
             return True
     return False
 
-def apply_move(board, x, y, player):
-    new_board = copy.deepcopy(board)
-    new_board[x][y] = player
-    for dx, dy in DIRECTIONS:
+def moves(board, color):
+    return [(x,y) for x in range(8) for y in range(8) if valid(board,x,y,color)]
+
+def put(board, x, y, color):
+    b = copy.deepcopy(board)
+    b[x][y] = color
+    for dx, dy in DIR:
         nx, ny = x+dx, y+dy
-        flip = []
-        while in_board(nx, ny) and new_board[nx][ny] == -player:
-            flip.append((nx, ny))
+        tmp = []
+        while in_board(nx, ny) and b[nx][ny] == -color:
+            tmp.append((nx, ny))
             nx += dx
             ny += dy
-        if flip and in_board(nx, ny) and new_board[nx][ny] == player:
-            for fx, fy in flip:
-                new_board[fx][fy] = player
-    return new_board
+        if tmp and in_board(nx, ny) and b[nx][ny] == color:
+            for tx, ty in tmp:
+                b[tx][ty] = color
+    return b
 
-def evaluate(board, player):
+def eval_board(board, color):
     score = 0
-
     for x in range(8):
         for y in range(8):
-            if board[x][y] == player:
+            if board[x][y] == color:
                 score += WEIGHT[x][y]
-            elif board[x][y] == -player:
+            elif board[x][y] == -color:
                 score -= WEIGHT[x][y]
-
-    # 機動力（控えめ）
-    mobility = len(get_valid_moves(board, player)) - len(get_valid_moves(board, -player))
-    score += mobility * 2
-
     return score
 
-def minimax(board, depth, alpha, beta, player, maximizing):
-    moves = get_valid_moves(board, player)
-    if depth == 0 or not moves:
-        return evaluate(board, player), None
+def minimax(board, color, depth):
+    ms = moves(board, color)
+    if depth == 0 or not ms:
+        return eval_board(board, color), None
 
-    best_move = None
+    best = -10**9
+    best_move = ms[0]
 
-    if maximizing:
-        best_val = -math.inf
-        for move in moves:
-            new_board = apply_move(board, move[0], move[1], player)
-            val, _ = minimax(new_board, depth-1, alpha, beta, -player, False)
-            if val > best_val:
-                best_val = val
-                best_move = move
-            alpha = max(alpha, val)
-            if beta <= alpha:
-                break
-        return best_val, best_move
-    else:
-        best_val = math.inf
-        for move in moves:
-            new_board = apply_move(board, move[0], move[1], player)
-            val, _ = minimax(new_board, depth-1, alpha, beta, -player, True)
-            if val < best_val:
-                best_val = val
-                best_move = move
-            beta = min(beta, val)
-            if beta <= alpha:
-                break
-        return best_val, best_move
+    for m in ms:
+        b2 = put(board, m[0], m[1], color)
+        val, _ = minimax(b2, -color, depth-1)
+        val = -val
+        if val > best:
+            best = val
+            best_move = m
 
-def ai_move(board, player, depth=5):
-    _, move = minimax(board, depth, -math.inf, math.inf, player, True)
+    return best, best_move
+
+def myai(board, color):
+    ms = moves(board, color)
+
+    # 角があれば即取る
+    for c in [(0,0),(0,7),(7,0),(7,7)]:
+        if c in ms:
+            return c
+
+    _, move = minimax(board, color, depth=2)
     return move
-
